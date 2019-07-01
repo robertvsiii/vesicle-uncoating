@@ -1,0 +1,11 @@
+setup.py
+vesicle_uncoating/DataImport.py
+vesicle_uncoating/FittingTools.py
+vesicle_uncoating/NetworkDef-07-17.py
+vesicle_uncoating/NetworkDef.py
+vesicle_uncoating/__init__.py
+vesicle_uncoating.egg-info/PKG-INFO
+vesicle_uncoating.egg-info/SOURCES.txt
+vesicle_uncoating.egg-info/dependency_links.txt
+vesicle_uncoating.egg-info/not-zip-safe
+vesicle_uncoating.egg-info/top_level.txt
