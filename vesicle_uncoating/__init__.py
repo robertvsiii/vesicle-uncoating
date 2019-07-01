@@ -38,8 +38,8 @@ class CoatedVesicle:
         else:
             print 'Invalid probe choice.'
         self.folder = folder
-        self.filename_params = folder + filename_params
-        self.filename_ens = folder + filename_ens
+        self.filename_params = folder + filename_params + '.bp'
+        self.filename_ens = folder + filename_ens + '.en'
         self.filename_ens_traj = folder + '_traj_' + filename_ens
         self.cpunum = cpu_count()
         self.colors = colors
@@ -75,7 +75,7 @@ class CoatedVesicle:
         self.net_probe[probe].update_optimizable_vars(self.params)
         #self.net_probe[probe].set_var_vals(self.params)
         traj = Dynamics.integrate(self.net_probe[probe], [0, self.tmax])
-        return traj
+        return traj.get_times(),traj.get_var_traj('CLTA'),traj.get_var_traj(self.net_probe[probe].probed_lipid),traj.get_var_traj(probe)
         
     def GetBestFit(self, method = 'Nelder-Mead-log', tol = 1e-3):
         if method == 'Powell-log':
