@@ -16,7 +16,6 @@ net.add_parameter('NPI', 200, is_optimizable = False)
 net.add_parameter('NPI35P2', 0, is_optimizable = False)
 
 #Enzyme parameters
-
 net.add_parameter('N3k0', 0.000001, is_optimizable = False)
 net.add_parameter('kcat3k',50, is_optimizable = False)
 net.add_parameter('KM3k',4, is_optimizable = False)
@@ -41,29 +40,12 @@ net.add_species('N3k4','pit', initial_conc = 'N3k40')
 net.add_parameter('CLTAmax_true', 70, is_optimizable = False)
 net.add_parameter('CLTAmax', 80, is_optimizable = False)
 net.add_parameter('CLTAmin', 5.55, is_optimizable = False)
-#net.add_parameter('knet',7, is_optimizable = False) #net forward rate parameter before scission
-#net.add_parameter('kc',107)
-#net.add_parameter('kcfinal',0, is_optimizable = False) #on-rate after uncoating
+
 net.add_parameter('ku0',0.0435, is_optimizable = False) #off- rate before scission
-#net.add_assignment_rule('kc', 'ku0 + knet') #on-rate before scission
-#net.add_parameter('fleak',0.0001, is_optimizable = False) #rate of losing first trimer of complete coat
-#net.add_parameter('ku1',0, is_optimizable = False) #off-rate after scission
-net.add_parameter('ku2', 0.494, is_optimizable = False) #off-rate with Hsc70
-#Scission time (replace with dynamin binding later)
-net.add_parameter('tsciss', 60)
-net.add_parameter('delay', 0., is_optimizable = False)
-net.add_parameter('tdst', 55, is_optimizable = False)
-net.add_assignment_rule('tsciss', 'tdst-delay')
-#Reduce dimensionality by constraining clathrin parameters
-#See "Dimensional Reduction" section in Lipid Probe Plots notebook
-#net.add_parameter('a',0)
-#net.add_parameter('turnover',0)
-#net.add_assignment_rule('a', '(fleak*CLTAmax_true*ku0/knet)**2')
-#net.add_assignment_rule('CLTAmax', 'CLTAmax_true*(1 - sqrt(sqrt((1-4*a)**2)))/(2*a)')
-#net.add_assignment_rule('turnover', 'kc * sqrt(sqrt(((CLTAmax_true/CLTAmax) - (CLTAmax_true/CLTAmax)**2)**2)) / CLTAmax_true')
+net.add_parameter('ku2', 0.494, is_optimizable = False) #off-rate with Hsc70 - use 0.7 for singletrack
 
-
-
+#Scission time 
+net.add_parameter('tsciss', 55., is_optimizable = False)
 
 #Binding of clathrin-binding domain to clathrin
 #Free protein binding
@@ -71,19 +53,17 @@ net.add_parameter('kcon0', 0.2, is_optimizable = False)
 net.add_parameter('kcon', 0)
 net.add_assignment_rule('kcon', 'kcon0/210')
 net.add_parameter('kcoff', 0.005, is_optimizable = False)
-
 net.add_parameter('s', 100, is_optimizable = False)
-
 
 #on-rate for all lipids
 net.add_parameter('klon', 0.1, is_optimizable = False)
 net.add_parameter('sl', 100, is_optimizable = False)#cooperativity factor for second domain of 2-domain proteins
 
+
 #ADD SPECIES
 net.add_species('CLTA','pit',initial_conc = 0)
 net.add_species('CLTAfree','pit',initial_conc = 'NC')
 net.add_species('switch0','pit',initial_conc = 0)
-net.add_species('switch1','pit',initial_conc = 0)
 
 net.add_species('PI','pit',initial_conc = 'NPI')
 net.add_species('PI3P','pit',initial_conc = 'NPI3P')
@@ -103,9 +83,9 @@ net.addReaction(Reactions.MichaelisMentenReaction, 'P5', S = 'PI45P2', P = 'PI4P
 net.addReaction(Reactions.MichaelisMentenReaction, 'K34', S = 'PI4P', P = 'PI34P2', E = 'N3k4', k = 'kcat3k4 * switch0',  
                 Km = 'KM3k4')
 
+
 #DEFINE SCISSION AND UNCOATING EVENTS
 net.add_event('scission', 'gt(time, tsciss)', {'switch0': '1'})
-net.add_event('destabilization', 'gt(time, tdst)', {'switch1': '1'})
 
 
 def MakeProbeNetwork(probe, net_base):
@@ -113,12 +93,14 @@ def MakeProbeNetwork(probe, net_base):
 
     if probe == 'FYVE':
         probed_lipid = 'PI3P'
+        max_lipid = 'NPI'
     elif probe == 'DrrA':
         probed_lipid = 'PI4P'
     elif probe == 'PH':
         probed_lipid = 'PI45P2'
     elif probe == 'TAPP1':
         probed_lipid = 'PI34P2'
+        max_lipid = 'NPI45P2'
     elif probe in ['Aux1', 'GAK']:
         probed_lipid = 'PI3P'
             
@@ -151,6 +133,8 @@ def MakeProbeNetwork(probe, net_base):
 
     
     if probe in ['FYVE','TAPP1']:
+        net_probe.add_parameter('kloff' + probed_lipid + '_eff', 2, is_optimizable = False)
+        net_probe.add_assignment_rule('kloff' + probed_lipid, '0.5*kloff'+probed_lipid+'_eff*(1+sqrt(1 + 4*sl*klon*'+max_lipid+'/kloff'+probed_lipid+'_eff))')
         net_probe.add_species(probe + probed_lipid + probed_lipid,'pit',initial_conc = 0)
         net_probe.add_species(probe +'CLTA' + probed_lipid + probed_lipid,'pit',initial_conc = 0)
         #Update assignment rule
@@ -173,14 +157,9 @@ def MakeProbeNetwork(probe, net_base):
     #('switch' parameters say whether vesicle has pinched off and whether uncoating threshold has been reached)
     #net_probe.add_species('circ'+probe, 0)
     net_probe.add_species('ku'+probe, 10)
-    #net_probe.add_assignment_rule('circ'+probe,'sqrt(sqrt(((CLTA/CLTAmax) - (CLTA/CLTAmax)**2)**2))')
-    #net_probe.add_assignment_rule('ku'+probe,'((1 - switch1) * ((1 - switch0) * ku0 + switch0 * ku1)) * (circ'+probe+' + fleak * CLTA) / (CLTA + 0.01) + switch1 * ku2 * (CLTA-CLTAmin)*(CLTAmax-CLTA)/(CLTAmax-CLTAmin)')
-    net_probe.add_assignment_rule('ku'+probe,'((1 - switch1) * ku0 + switch1 * ku2) * (CLTAmax_true - CLTA)/(CLTAmax_true-CLTAmin)')
-
-    #net_probe.addReaction(Reactions.ProductionReaction, 'add', product = 'CLTAfree',
-    #                      rate = '3 * (kc * (1 - switch0) ) * circ' + probe + '+ 3 * kcfinal * switch1')
+    net_probe.add_assignment_rule('ku'+probe,'((1 - switch0) * ku0 + switch0 * ku2) * (CLTAmax_true - CLTA)/(CLTAmax_true-CLTAmin)')
     net_probe.addReaction(Reactions.ProductionReaction, 'add', product = 'CLTAfree',
-                          rate = '3 * ((1 - switch1) * ku0 * CLTAmax * (CLTAmax - CLTA) + switch1 * ku2 * CLTAmin * (CLTAmax_true - CLTA))/(CLTAmax_true - CLTAmin)')
+                          rate = '3 * ((1 - switch0) * ku0 * CLTAmax * (CLTAmax - CLTA) + switch0 * ku2 * CLTAmin * (CLTAmax_true - CLTA))/(CLTAmax_true - CLTAmin)')
     net_probe.addReaction(Reactions.ExponentialDecayReaction, 'removefree', species = 'CLTAfree',
                           rate = 'ku'+probe)
     net_probe.addReaction(Reactions.ExponentialDecayReaction, 'removeprobeCLTA', species = probe + 'CLTA',

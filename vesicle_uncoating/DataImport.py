@@ -3,12 +3,23 @@ import csv
 import numpy as np
 import pickle
 
-def ImportData(PROBE, folder, CLTAmax, probechoice, control):
+def ImportData(PROBE, folder, CLTAmax, probechoice, control, singletrack):
     
-    t, probe, probeerr, CLTA, CLTAerr = LoadData(PROBE,folder)
+    #Truncate initial steady-state region, and increase size of error bars for control data.
+    trunc = 12
+    ControlErr = 1
+    
+    if singletrack:
+        t, probe, probeerr, CLTA, CLTAerr = LoadData(PROBE,folder,tracktype='singletrack')
+    else:
+        t, probe, probeerr, CLTA, CLTAerr = LoadData(PROBE,folder,tracktype='normal')
+        #Compensate for wrong error calculation in export file
+        probeerr = probeerr/2.
+        CLTAerr = CLTAerr/2. 
+        
     
     #CLTA, CLTAerr = Rescale(CLTA,CLTAerr,CLTAmax)
-    CLTAdict = dict((t[k], (CLTA[k],CLTAerr[k])) for k in range(len(t)))
+    CLTAdict = dict((t[k], (CLTA[k],CLTAerr[k])) for k in range(trunc,len(t)))
     CLTAdict = RemoveNaNs(CLTAdict)
     
     expt = Experiment(PROBE)
@@ -17,16 +28,16 @@ def ImportData(PROBE, folder, CLTAmax, probechoice, control):
         expt.set_data(dict([('net' + PROBE,dict([('CLTA',CLTAdict)]))]))
         #expt.set_fixed_sf({'CLTA' : 1})
     else:
-        probedict = dict((t[k], (probe[k],probeerr[k])) for k in range(len(t)))
+        probedict = dict((t[k], (probe[k],probeerr[k])) for k in range(trunc,len(t)))
         if control:
-            tNC, probeNC, probeerrNC, CLTANC, CLTAerrNC = LoadData(PROBE,folder,control=True)
-            NoClathrindict = dict((tNC[k], (probeNC[k],probeerrNC[k])) for k in range(len(tNC)))
-            NoClathrinCLTAdict = dict((tNC[k], (CLTANC[k],CLTAerrNC[k])) for k in range(len(tNC)))
+            tNC, probeNC, probeerrNC, CLTANC, CLTAerrNC = LoadData(PROBE,folder,tracktype='control')
+            NoClathrindict = dict((tNC[k], (probeNC[k],ControlErr)) for k in range(trunc,len(tNC)))
+            NoClathrinCLTAdict = dict((tNC[k], (CLTANC[k],CLTAerrNC[k])) for k in range(trunc,len(tNC)))
             NoClathrinCLTAdict = RemoveNaNs(NoClathrinCLTAdict)
      
-            tNL, probeNL, probeerrNL, CLTANL, CLTAerrNL = LoadData('Aux1TRUNC',folder,control=True)
-            NoLipiddict = dict((tNL[k], (probeNL[k],probeerrNL[k])) for k in range(len(tNL)))
-            NoLipidCLTAdict = dict((tNL[k], (CLTANL[k],CLTAerrNL[k])) for k in range(len(tNL)))
+            tNL, probeNL, probeerrNL, CLTANL, CLTAerrNL = LoadData('Aux1TRUNC',folder,tracktype='control')
+            NoLipiddict = dict((tNL[k], (probeNL[k],ControlErr)) for k in range(trunc,len(tNL)))
+            NoLipidCLTAdict = dict((tNL[k], (CLTANL[k],CLTAerrNL[k])) for k in range(trunc,len(tNL)))
             NoLipidCLTAdict = RemoveNaNs(NoLipidCLTAdict)
             
             if PROBE in ['FYVE','TAPP1']:
@@ -84,9 +95,11 @@ def MakeProbeModel(netdict, exptdict, priors):
     
     return model, params, cost
 
-def LoadData(PROBE,folder,control=False):
-    if control:
+def LoadData(PROBE,folder,tracktype='normal'):
+    if tracktype == 'control':
         groupname = PROBE + '_control'
+    elif tracktype == 'singletrack':
+        groupname = 'SingleTrack_' + PROBE
     else:
         groupname = PROBE
             
