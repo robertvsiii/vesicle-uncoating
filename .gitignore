@@ -1,0 +1,8 @@
+
+*.txt
+vesicle_uncoating.egg-info/not-zip-safe
+vesicle_uncoating.egg-info/PKG-INFO
+*.pyc
+vesicle_uncoating/__init__.pyc
+vesicle_uncoating/DataImport.pyc
+vesicle_uncoating/NetworkDef.pyc
